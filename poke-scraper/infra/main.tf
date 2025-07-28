@@ -17,7 +17,7 @@ variable "zip_path" {
   default = ""
 }
 
-data "aws_iam_policy_document" "assume_policy" {
+data "aws_iam_policy_document" "lambda_assume_policy" {
   statement {
     actions = ["sts:AssumeRole"]
     effect  = "Allow"
@@ -29,7 +29,7 @@ data "aws_iam_policy_document" "assume_policy" {
 }
 
 resource "aws_iam_role" "lambda_role" {
-  assume_role_policy = data.aws_iam_policy_document.assume_policy.json
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_policy.json
 }
 
 resource "aws_iam_policy_attachment" "basic_execution" {
@@ -42,7 +42,7 @@ locals {
   lambdas = ["scheduler", "scraper"]
 }
 
-resource "aws_lambda_function" "scheduler" {
+resource "aws_lambda_function" "functions" {
   for_each         = toset(local.lambdas)
   function_name    = "poke-${each.value}"
   handler          = each.value
@@ -53,4 +53,50 @@ resource "aws_lambda_function" "scheduler" {
   source_code_hash = filebase64sha256(var.zip_path)
   timeout          = 60 * 3
   memory_size      = 512
+}
+
+data "aws_iam_policy_document" "sfn_assume_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    effect  = "Allow"
+    principals {
+      identifiers = ["states.amazonaws.com"]
+      type        = "Service"
+    }
+  }
+}
+
+data "aws_iam_policy_document" "sfn_role_policy" {
+  statement {
+    actions = ["lambda:InvokeFunction"]
+    effect  = "Allow"
+    resources = [
+      aws_lambda_function.functions["scheduler"].arn,
+      aws_lambda_function.functions["scraper"].arn
+    ]
+  }
+}
+
+resource "aws_iam_role" "sfn_role" {
+  assume_role_policy = data.aws_iam_policy_document.sfn_assume_policy.json
+}
+
+resource "aws_iam_policy" "invoke_lambdas" {
+  name   = "invoke-lambdas"
+  policy = data.aws_iam_policy_document.sfn_role_policy.json
+}
+
+resource "aws_iam_policy_attachment" "sfn_policy" {
+  name       = "sfn-policy"
+  roles      = [aws_iam_role.sfn_role.id]
+  policy_arn = aws_iam_policy.invoke_lambdas.arn
+}
+
+resource "aws_sfn_state_machine" "state_machine" {
+  name = "poke-scraper-sfn"
+  definition = templatefile("${path.module}/sfn_definition.json", {
+    scheduler_arn : aws_lambda_function.functions["scheduler"].arn
+    scraper_arn : aws_lambda_function.functions["scraper"].arn
+  })
+  role_arn = aws_iam_role.sfn_role.arn
 }

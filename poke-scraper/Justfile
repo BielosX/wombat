@@ -28,5 +28,6 @@ tf-fmt:
     tofu fmt
 
 go-qual:
+    go install golang.org/x/tools/cmd/goimports@latest
     goimports -w "{{justfile_directory()}}/src"
     golangci-lint run "{{justfile_directory()}}/src"

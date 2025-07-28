@@ -1,0 +1,26 @@
+{
+  "Comment": "Poke Scraper State Machine",
+  "StartAt": "Scheduler",
+  "States": {
+    "Scheduler": {
+        "Type": "Task",
+        "Resource": "${scheduler_arn}",
+        "Next": "Scrapper"
+    },
+    "Scrapper": {
+        "Type": "Map",
+        "End": true,
+        "MaxConcurrency": 0,
+        "ItemProcessor": {
+            "StartAt": "Process",
+            "States": {
+                "Process": {
+                    "Type": "Task",
+                    "Resource": "${scraper_arn}",
+                    "End": true
+                }
+            }
+        }
+    }
+  }
+}
