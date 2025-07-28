@@ -1,0 +1,32 @@
+zip-filename := "handlers.zip"
+
+build:
+    mkdir -p out
+    GOOS=linux GOARCH=arm64 go build -C src -o "{{justfile_directory()}}/out/bootstrap" -tags lambda.norpc
+
+[working-directory: "out"]
+zip: build
+    zip "{{zip-filename}}" bootstrap
+
+clean:
+    rm -rf "{{justfile_directory()}}/out"
+
+[working-directory: "infra"]
+tf-apply: clean zip
+    tofu init
+    tofu apply -auto-approve -var "zip_path={{justfile_directory()}}/out/{{zip-filename}}"
+
+[working-directory: "infra"]
+tf-destroy:
+    #!/bin/bash -e
+    tmp=$(mktemp)
+    tofu destroy -auto-approve -var "zip_path=$tmp"
+    rm "$tmp"
+
+[working-directory: "infra"]
+tf-fmt:
+    tofu fmt
+
+go-qual:
+    goimports -w "{{justfile_directory()}}/src"
+    golangci-lint run "{{justfile_directory()}}/src"
