@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -57,41 +56,53 @@ func handleScraping(request Schedule) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	pokemonWriter, err := parquet.NewPokemonWriter()
-	if err != nil {
-		return "", err
-	}
-	for _, pokemon := range pokemons {
-		for _, pokemonType := range pokemon.Types {
-			entry := &parquet.Pokemon{
-				Name:   pokemon.Name,
-				Weight: pokemon.Weight,
-				Height: pokemon.Height,
-				Type:   pokemonType.Type.Name,
-			}
-			sugar.Infof("Writing Pokemon %s", entry.Name)
-			err = pokemonWriter.WritePokemon(entry)
+	firstId := offset + 1
+	resultsCount := int32(len(pokemons))
+	sugar.Infof("Got %d Pokemon results", resultsCount)
+	if resultsCount > 0 {
+		pokemonWriter, err := parquet.NewPokemonWriter(sugar)
+		if err != nil {
+			sugar.Errorf("Failed to create Pokemon Parquet Writer: %s", err)
+			return "", err
+		}
+		for _, pokemon := range pokemons {
+			generation, err := client.GetPokemonGeneration(pokemon.Species)
 			if err != nil {
-				sugar.Errorf("Error writing Pokemon to Parquet: %s", err)
+				sugar.Errorf("Failed to get Pokemon Generation: %s", err)
 				return "", err
 			}
+			entries, err := parquet.FromResponse(pokemon)
+			if err != nil {
+				sugar.Errorf("Failed to parse Pokemon response: %s", err)
+				return "", err
+			}
+			for _, entry := range entries {
+				entry.Generation = generation
+				sugar.Infof("Writing Pokemon %s", entry.Name)
+				err = pokemonWriter.WritePokemon(&entry)
+				if err != nil {
+					sugar.Errorf("Error writing Pokemon to Parquet: %s", err)
+					return "", err
+				}
+			}
 		}
+		err = pokemonWriter.Finish()
+		if err != nil {
+			return "", err
+		}
+		fileName := fmt.Sprintf("pokemons/%d_%d.parquet", firstId, firstId+resultsCount)
+		sugar.Infof("Sending parquet file of size %d to S3", pokemonWriter.Size())
+		_, err = s3Client.PutObject(context.Background(), &s3.PutObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(fileName),
+			Body:   pokemonWriter.BufferReader(),
+		})
+		if err != nil {
+			return "", err
+		}
+		return fileName, nil
 	}
-	err = pokemonWriter.Close()
-	if err != nil {
-		return "", err
-	}
-	fileName := fmt.Sprintf("%s.parquet", uuid.New().String())
-	sugar.Infof("Sending parquet file of size %d to S3", pokemonWriter.Size())
-	_, err = s3Client.PutObject(context.Background(), &s3.PutObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(fileName),
-		Body:   pokemonWriter.BufferReader(),
-	})
-	if err != nil {
-		return "", err
-	}
-	return fileName, nil
+	return "", nil
 }
 
 func syncLogger() {

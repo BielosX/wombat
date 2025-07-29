@@ -3,6 +3,8 @@ package parquet
 import (
 	"io"
 
+	"go.uber.org/zap"
+
 	"github.com/xitongsys/parquet-go-source/buffer"
 	"github.com/xitongsys/parquet-go/writer"
 )
@@ -12,8 +14,10 @@ type PokemonWriter struct {
 	writer *writer.ParquetWriter
 }
 
-func NewPokemonWriter() (*PokemonWriter, error) {
-	bufferFile := buffer.NewBufferFile()
+const InitialCapacity = 16 * 1024 * 1024
+
+func NewPokemonWriter(sugar *zap.SugaredLogger) (*PokemonWriter, error) {
+	bufferFile := buffer.NewBufferFileCapacity(InitialCapacity)
 	w, err := writer.NewParquetWriter(bufferFile, new(Pokemon), 10)
 	if err != nil {
 		return nil, err
@@ -28,7 +32,7 @@ func (w *PokemonWriter) WritePokemon(pokemon *Pokemon) error {
 	return w.writer.Write(pokemon)
 }
 
-func (w *PokemonWriter) Close() error {
+func (w *PokemonWriter) Finish() error {
 	err := w.writer.WriteStop()
 	if err != nil {
 		return err

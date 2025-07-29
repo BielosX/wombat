@@ -82,12 +82,45 @@ func (c *Client) ListPokemons(limit, offset int32) ([]PokemonResponse, error) {
 			errs = append(errs, e)
 		}
 	}
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
+	err = errors.Join(errs...)
+	if err != nil {
+		return nil, err
 	}
 	var results []PokemonResponse
 	for pokemon := range resultChan {
 		results = append(results, pokemon)
 	}
 	return results, nil
+}
+
+func (c *Client) GetPokemonGeneration(species PokemonResponseSpecies) (int32, error) {
+	response, err := c.client.Get(species.Url)
+	if err != nil {
+		return 0, err
+	}
+	var pokemonSpecies PokemonSpecies
+	decoder := json.NewDecoder(response.Body)
+	err = decoder.Decode(&pokemonSpecies)
+	if err != nil {
+		return 0, err
+	}
+	err = response.Body.Close()
+	if err != nil {
+		return 0, err
+	}
+	response, err = c.client.Get(pokemonSpecies.Generation.Url)
+	if err != nil {
+		return 0, err
+	}
+	var generation PokemonGeneration
+	decoder = json.NewDecoder(response.Body)
+	err = decoder.Decode(&generation)
+	if err != nil {
+		return 0, err
+	}
+	err = response.Body.Close()
+	if err != nil {
+		return 0, err
+	}
+	return generation.Id, nil
 }
