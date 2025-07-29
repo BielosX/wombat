@@ -24,46 +24,39 @@ func NewClient(sugar *zap.SugaredLogger) *Client {
 	}
 }
 
+func (c *Client) getAndDecode(url string, target any) error {
+	resp, err := c.client.Get(url)
+	if err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(resp.Body)
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	if err := resp.Body.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Client) fetchPokemon(url string,
 	errChan chan<- error,
 	resultChan chan<- PokemonResponse,
 	waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
 	c.sugar.Infof("Fetching PokemonResponse %s", url)
-	response, err := c.client.Get(url)
-	if err != nil {
-		errChan <- err
-		return
-	}
 	var pokemon PokemonResponse
-	decoder := json.NewDecoder(response.Body)
-	err = decoder.Decode(&pokemon)
-	if err != nil {
+	if err := c.getAndDecode(url, &pokemon); err != nil {
 		errChan <- err
 		return
 	}
 	resultChan <- pokemon
-	err = response.Body.Close()
-	if err != nil {
-		errChan <- err
-		return
-	}
 }
 
 func (c *Client) ListPokemons(limit, offset int32) ([]PokemonResponse, error) {
 	url := fmt.Sprintf("%s/pokemon?limit=%d&offset=%d", c.baseUrl, limit, offset)
-	response, err := c.client.Get(url)
-	if err != nil {
-		return nil, err
-	}
 	var result PokemonListResult
-	decoder := json.NewDecoder(response.Body)
-	err = decoder.Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-	err = response.Body.Close()
-	if err != nil {
+	if err := c.getAndDecode(url, &result); err != nil {
 		return nil, err
 	}
 	var waitGroup sync.WaitGroup
@@ -82,8 +75,7 @@ func (c *Client) ListPokemons(limit, offset int32) ([]PokemonResponse, error) {
 			errs = append(errs, e)
 		}
 	}
-	err = errors.Join(errs...)
-	if err != nil {
+	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
 	var results []PokemonResponse
@@ -91,21 +83,6 @@ func (c *Client) ListPokemons(limit, offset int32) ([]PokemonResponse, error) {
 		results = append(results, pokemon)
 	}
 	return results, nil
-}
-
-func (c *Client) getAndDecode(url string, target any) error {
-	resp, err := c.client.Get(url)
-	if err != nil {
-		return err
-	}
-	decoder := json.NewDecoder(resp.Body)
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	if err := resp.Body.Close(); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (c *Client) GetPokemonGeneration(species PokemonResponseSpecies) (int32, error) {
