@@ -31,15 +31,13 @@ func (w *PokemonWriter) WritePokemon(pokemon *Pokemon) error {
 }
 
 func (w *PokemonWriter) Finish() error {
-	err := w.writer.WriteStop()
-	if err != nil {
+	if err := w.writer.WriteStop(); err != nil {
 		return err
 	}
-	err = w.writer.Flush(false)
-	if err != nil {
+	if err := w.writer.Flush(false); err != nil {
 		return err
 	}
-	_, err = w.buffer.Seek(0, io.SeekStart)
+	_, err := w.buffer.Seek(0, io.SeekStart)
 	return err
 }
 

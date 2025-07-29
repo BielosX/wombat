@@ -86,8 +86,7 @@ func handleScraping(request Schedule) (string, error) {
 				}
 			}
 		}
-		err = pokemonWriter.Finish()
-		if err != nil {
+		if err := pokemonWriter.Finish(); err != nil {
 			return "", err
 		}
 		fileName := fmt.Sprintf("pokemons/%d_%d.parquet", firstId, firstId+resultsCount)

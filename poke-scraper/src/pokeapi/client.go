@@ -93,33 +93,28 @@ func (c *Client) ListPokemons(limit, offset int32) ([]PokemonResponse, error) {
 	return results, nil
 }
 
+func (c *Client) getAndDecode(url string, target any) error {
+	resp, err := c.client.Get(url)
+	if err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(resp.Body)
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	if err := resp.Body.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Client) GetPokemonGeneration(species PokemonResponseSpecies) (int32, error) {
-	response, err := c.client.Get(species.Url)
-	if err != nil {
-		return 0, err
-	}
 	var pokemonSpecies PokemonSpecies
-	decoder := json.NewDecoder(response.Body)
-	err = decoder.Decode(&pokemonSpecies)
-	if err != nil {
-		return 0, err
-	}
-	err = response.Body.Close()
-	if err != nil {
-		return 0, err
-	}
-	response, err = c.client.Get(pokemonSpecies.Generation.Url)
-	if err != nil {
+	if err := c.getAndDecode(species.Url, &pokemonSpecies); err != nil {
 		return 0, err
 	}
 	var generation PokemonGeneration
-	decoder = json.NewDecoder(response.Body)
-	err = decoder.Decode(&generation)
-	if err != nil {
-		return 0, err
-	}
-	err = response.Body.Close()
-	if err != nil {
+	if err := c.getAndDecode(pokemonSpecies.Generation.Url, &generation); err != nil {
 		return 0, err
 	}
 	return generation.Id, nil
