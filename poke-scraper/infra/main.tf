@@ -28,6 +28,39 @@ data "aws_iam_policy_document" "lambda_assume_policy" {
   }
 }
 
+resource "aws_s3_bucket" "data_warehouse" {
+  bucket_prefix = "data-warehouse-"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_public_access_block" "data_warehouse_block" {
+  bucket                  = aws_s3_bucket.data_warehouse.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "data_warehouse_ownership" {
+  bucket = aws_s3_bucket.data_warehouse.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+
+}
+
+data "aws_iam_policy_document" "bucket_access" {
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.data_warehouse.arn}/*"]
+  }
+}
+
+resource "aws_iam_policy" "bucket_access" {
+  policy = data.aws_iam_policy_document.bucket_access.json
+}
+
 resource "aws_iam_role" "lambda_role" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_policy.json
 }
@@ -36,6 +69,12 @@ resource "aws_iam_policy_attachment" "basic_execution" {
   name       = "basic-execution-role"
   roles      = [aws_iam_role.lambda_role.id]
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_policy_attachment" "bucket_access" {
+  name       = "bucket-access"
+  roles      = [aws_iam_role.lambda_role.id]
+  policy_arn = aws_iam_policy.bucket_access.arn
 }
 
 locals {
@@ -51,8 +90,13 @@ resource "aws_lambda_function" "functions" {
   architectures    = ["arm64"]
   filename         = var.zip_path
   source_code_hash = filebase64sha256(var.zip_path)
-  timeout          = 60 * 3
+  timeout          = 60 * 2
   memory_size      = 512
+  environment {
+    variables = {
+      BUCKET_NAME = aws_s3_bucket.data_warehouse.id
+    }
+  }
 }
 
 data "aws_iam_policy_document" "sfn_assume_policy" {
@@ -82,7 +126,6 @@ resource "aws_iam_role" "sfn_role" {
 }
 
 resource "aws_iam_policy" "invoke_lambdas" {
-  name   = "invoke-lambdas"
   policy = data.aws_iam_policy_document.sfn_role_policy.json
 }
 
