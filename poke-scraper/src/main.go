@@ -60,7 +60,7 @@ func handleScraping(request Schedule) (string, error) {
 	resultsCount := int32(len(pokemons))
 	sugar.Infof("Got %d Pokemon results", resultsCount)
 	if resultsCount > 0 {
-		pokemonWriter, err := parquet.NewPokemonWriter(sugar)
+		pokemonWriter, err := parquet.NewPokemonWriter()
 		if err != nil {
 			sugar.Errorf("Failed to create Pokemon Parquet Writer: %s", err)
 			return "", err
