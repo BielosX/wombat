@@ -71,7 +71,7 @@ func handleScraping(request Schedule) (string, error) {
 				sugar.Errorf("Failed to get Pokemon Generation: %s", err)
 				return "", err
 			}
-			entries, err := parquet.FromResponse(pokemon)
+			entries, err := parquet.ToPokemon(pokemon, generation)
 			if err != nil {
 				sugar.Errorf("Failed to parse Pokemon response: %s", err)
 				return "", err

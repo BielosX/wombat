@@ -33,7 +33,7 @@ const (
 
 var expectedStats = []string{Hp, Attack, Defense, SpecialAttack, SpecialDefense, Speed}
 
-func FromResponse(resp pokeapi.PokemonResponse) ([]Pokemon, error) {
+func ToPokemon(resp pokeapi.PokemonResponse, generation int32) ([]Pokemon, error) {
 	var result []Pokemon
 	stats := make(map[string]int32)
 	for _, stat := range resp.Stats {
@@ -63,6 +63,7 @@ func FromResponse(resp pokeapi.PokemonResponse) ([]Pokemon, error) {
 			BaseSpecialAttack:  stats[SpecialAttack],
 			BaseSpecialDefense: stats[SpecialDefense],
 			BaseSpeed:          stats[Speed],
+			Generation:         generation,
 		}
 		result = append(result, entry)
 	}
