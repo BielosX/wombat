@@ -1,4 +1,7 @@
 zip-filename := "handlers.zip"
+tools-dir := justfile_directory() + "/bin"
+golangci-lint-version := "v2.3.0"
+golangci-lint-install-url := "https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh"
 
 build:
     mkdir -p out
@@ -27,9 +30,13 @@ tf-destroy:
 tf-fmt:
     tofu fmt
 
-go-qual:
-    go install golang.org/x/tools/cmd/goimports@latest
-    go install github.com/segmentio/golines@latest
-    goimports -w "{{justfile_directory()}}/src"
-    golines -w "{{justfile_directory()}}/src"
-    golangci-lint run "{{justfile_directory()}}/src"
+go-tools:
+    mkdir -p "{{tools-dir}}"
+    GOBIN="{{tools-dir}}" go install golang.org/x/tools/cmd/goimports@latest
+    GOBIN="{{tools-dir}}" go install github.com/segmentio/golines@latest
+    curl -sSfL "{{golangci-lint-install-url}}" | sh -s -- -b "{{tools-dir}}" "{{golangci-lint-version}}"
+
+go-qual: go-tools
+    {{tools-dir}}/goimports -w "{{justfile_directory()}}/src"
+    {{tools-dir}}/golines -w "{{justfile_directory()}}/src"
+    {{tools-dir}}/golangci-lint run "{{justfile_directory()}}/src"
