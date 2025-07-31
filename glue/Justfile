@@ -4,8 +4,10 @@ tf-apply source-bucket:
     tofu init
     tofu apply -auto-approve -var "region={{region}}" -var "source_bucket={{source-bucket}}"
 
-tf-destroy source-bucket:
-    tofu destroy -auto-approve -var "region={{region}}" -var "source_bucket={{source-bucket}}"
+tf-destroy:
+    #!/bin/bash
+    source_bucket=$(tofu output -json | jq -r '.source_bucket.value')
+    tofu destroy -auto-approve -var "region={{region}}" -var "source_bucket=${source_bucket}"
 
 tf-fmt:
     tofu fmt .

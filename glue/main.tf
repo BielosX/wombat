@@ -29,6 +29,10 @@ data "aws_s3_bucket" "data_bucket" {
   bucket = var.source_bucket
 }
 
+output "source_bucket" {
+  value = data.aws_s3_bucket.data_bucket.id
+}
+
 data "aws_iam_policy_document" "s3_policy" {
   statement {
     effect  = "Allow"
@@ -72,13 +76,14 @@ resource "aws_iam_policy_attachment" "glue_service_role" {
 }
 
 resource "aws_glue_crawler" "glue_crawler" {
+  for_each      = toset(["csv", "parquet"])
   database_name = aws_glue_catalog_database.catalog_database.name
-  name          = "pokemon-crawler"
+  name          = "pokemon-${each.value}-crawler"
   role          = aws_iam_role.crawler_role.arn
   classifiers   = [] // use builtin csv and parquet
 
   s3_target {
-    path = "s3://${data.aws_s3_bucket.data_bucket.id}/pokemons/"
+    path = "s3://${data.aws_s3_bucket.data_bucket.id}/pokemons/${each.value}/"
   }
 
   schema_change_policy {

@@ -106,8 +106,8 @@ func handleScraping(request Schedule) (*ScraperResult, error) {
 		if err := csvWriter.Finish(); err != nil {
 			return nil, err
 		}
-		parquetFileName := fmt.Sprintf("pokemons/%d_%d.parquet", firstId, firstId+resultsCount)
-		csvFileName := fmt.Sprintf("pokemons/%d_%d.csv", firstId, firstId+resultsCount)
+		parquetFileName := fmt.Sprintf("pokemons/parquet/%d_%d.parquet", firstId, firstId+resultsCount)
+		csvFileName := fmt.Sprintf("pokemons/csv/%d_%d.csv", firstId, firstId+resultsCount)
 		sugar.Infof("Sending parquet file of size %d to S3", pokemonWriter.Size())
 		err = s3Client.PutFile(pokemonWriter.BufferReader(), bucketName, parquetFileName)
 		if err != nil {
