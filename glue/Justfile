@@ -1,0 +1,11 @@
+region := env("AWS_REGION", "eu-west-1")
+
+tf-apply source-bucket:
+    tofu init
+    tofu apply -auto-approve -var "region={{region}}" -var "source_bucket={{source-bucket}}"
+
+tf-destroy source-bucket:
+    tofu destroy -auto-approve -var "region={{region}}" -var "source_bucket={{source-bucket}}"
+
+tf-fmt:
+    tofu fmt .
