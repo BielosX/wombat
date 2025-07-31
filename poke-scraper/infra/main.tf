@@ -38,6 +38,14 @@ resource "aws_s3_bucket" "data_warehouse" {
   force_destroy = true
 }
 
+output "data_bucket_arn" {
+  value = aws_s3_bucket.data_warehouse.arn
+}
+
+output "data_bucket_name" {
+  value = aws_s3_bucket.data_warehouse.id
+}
+
 resource "aws_s3_bucket_public_access_block" "data_warehouse_block" {
   bucket                  = aws_s3_bucket.data_warehouse.id
   block_public_acls       = true

@@ -12,25 +12,25 @@ variable "region" {
   type = string
 }
 
-variable "source_bucket" {
-  type    = string
-  default = ""
-}
-
 provider "aws" {
   region = var.region
+}
+
+data "terraform_remote_state" "poke_scraper" {
+  backend = "local"
+
+  config = {
+    path = "${path.module}/../poke-scraper/infra/terraform.tfstate"
+  }
 }
 
 resource "aws_glue_catalog_database" "catalog_database" {
   name = "pokemon-crawler-db"
 }
 
-data "aws_s3_bucket" "data_bucket" {
-  bucket = var.source_bucket
-}
-
-output "source_bucket" {
-  value = data.aws_s3_bucket.data_bucket.id
+locals {
+  data_bucket_arn  = data.terraform_remote_state.poke_scraper.outputs.data_bucket_arn
+  data_bucket_name = data.terraform_remote_state.poke_scraper.outputs.data_bucket_name
 }
 
 data "aws_iam_policy_document" "s3_policy" {
@@ -38,8 +38,8 @@ data "aws_iam_policy_document" "s3_policy" {
     effect  = "Allow"
     actions = ["s3:GetObject", "s3:ListBucket"]
     resources = [
-      data.aws_s3_bucket.data_bucket.arn,
-      "${data.aws_s3_bucket.data_bucket.arn}/*"
+      local.data_bucket_arn,
+      "${local.data_bucket_arn}/*"
     ]
   }
 }
@@ -83,7 +83,7 @@ resource "aws_glue_crawler" "glue_crawler" {
   classifiers   = [] // use builtin csv and parquet
 
   s3_target {
-    path = "s3://${data.aws_s3_bucket.data_bucket.id}/pokemons/${each.value}/"
+    path = "s3://${local.data_bucket_name}/pokemons/${each.value}/"
   }
 
   schema_change_policy {
