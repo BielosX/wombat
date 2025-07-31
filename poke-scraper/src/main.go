@@ -136,7 +136,7 @@ func main() {
 	defer syncLogger()
 	region := os.Getenv("AWS_REGION")
 	bucketName = os.Getenv("BUCKET_NAME")
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv(region)))
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(os.Getenv(region)))
 	if err != nil {
 		sugar.Fatal("Failed to load SDK config")
 	}
