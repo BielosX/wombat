@@ -2,6 +2,9 @@ zip-filename := "handlers.zip"
 tools-dir := justfile_directory() + "/bin"
 golangci-lint-version := "v2.3.0"
 golangci-lint-install-url := "https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh"
+region := env("AWS_REGION", "eu-west-1")
+
+export AWS_PAGER := ""
 
 build:
     mkdir -p out
@@ -17,13 +20,13 @@ clean:
 [working-directory: "infra"]
 tf-apply: clean zip
     tofu init
-    tofu apply -auto-approve -var "zip_path={{justfile_directory()}}/out/{{zip-filename}}"
+    tofu apply -auto-approve -var "zip_path={{justfile_directory()}}/out/{{zip-filename}}" -var "region={{region}}"
 
 [working-directory: "infra"]
 tf-destroy:
     #!/bin/bash -e
     tmp=$(mktemp)
-    tofu destroy -auto-approve -var "zip_path=$tmp"
+    tofu destroy -auto-approve -var "zip_path=$tmp" -var "region={{region}}"
     rm "$tmp"
 
 [working-directory: "infra"]
@@ -40,3 +43,10 @@ go-qual: go-tools
     {{tools-dir}}/goimports -w "{{justfile_directory()}}/src"
     {{tools-dir}}/golines -w "{{justfile_directory()}}/src"
     {{tools-dir}}/golangci-lint run "{{justfile_directory()}}/src"
+
+run-sfn page-size start-offset page-count:
+    #!/bin/bash -e
+    account_id=$(aws sts get-caller-identity | jq -r '.Account')
+    arn="arn:aws:states:{{region}}:${account_id}:stateMachine:poke-scraper-sfn"
+    aws --region "{{region}}" stepfunctions start-execution --state-machine-arn "$arn" \
+        --input "{ \"pageSize\": {{page-size}}, \"startOffset\": {{start-offset}}, \"pageCount\": {{page-count}} }"

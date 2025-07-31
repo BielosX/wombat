@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/BielosX/wombat/poke-scraper/src/csv"
+
 	"github.com/BielosX/wombat/poke-scraper/src/parquet"
 
 	"github.com/BielosX/wombat/poke-scraper/src/pokeapi"
-	"github.com/aws/aws-sdk-go-v2/aws"
-
+	"github.com/BielosX/wombat/poke-scraper/src/s3"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"go.uber.org/zap"
 )
 
@@ -31,6 +31,11 @@ type Schedule struct {
 	Offset int32 `json:"offset"`
 }
 
+type ScraperResult struct {
+	ParquetFileName string `json:"parquetFileName"`
+	CsvFileName     string `json:"csvFileName"`
+}
+
 func scheduleTasks(request ScheduleRequest) ([]Schedule, error) {
 	sugar.Infof("Starting Schedule Tasks Handler, pageSize: %d, startOffset: %d, pageCount: %d",
 		request.PageSize,
@@ -45,7 +50,7 @@ func scheduleTasks(request ScheduleRequest) ([]Schedule, error) {
 	return result, nil
 }
 
-func handleScraping(request Schedule) (string, error) {
+func handleScraping(request Schedule) (*ScraperResult, error) {
 	sugar.Infof("Starting Scrapping Handler, limit: %d offset: %d",
 		request.Limit,
 		request.Offset)
@@ -54,7 +59,7 @@ func handleScraping(request Schedule) (string, error) {
 	client := pokeapi.NewClient(sugar)
 	pokemons, err := client.ListPokemons(limit, offset)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	firstId := offset + 1
 	resultsCount := int32(len(pokemons))
@@ -63,18 +68,22 @@ func handleScraping(request Schedule) (string, error) {
 		pokemonWriter, err := parquet.NewPokemonWriter()
 		if err != nil {
 			sugar.Errorf("Failed to create Pokemon Parquet Writer: %s", err)
-			return "", err
+			return nil, err
+		}
+		csvWriter := csv.NewPokemonWriter()
+		if err := csvWriter.WriteHeader(); err != nil {
+			return nil, err
 		}
 		for _, pokemon := range pokemons {
 			generation, err := client.GetPokemonGeneration(pokemon.Species)
 			if err != nil {
 				sugar.Errorf("Failed to get Pokemon Generation: %s", err)
-				return "", err
+				return nil, err
 			}
 			entries, err := parquet.ToPokemon(pokemon, generation)
 			if err != nil {
 				sugar.Errorf("Failed to parse Pokemon response: %s", err)
-				return "", err
+				return nil, err
 			}
 			for _, entry := range entries {
 				entry.Generation = generation
@@ -82,26 +91,39 @@ func handleScraping(request Schedule) (string, error) {
 				err = pokemonWriter.WritePokemon(&entry)
 				if err != nil {
 					sugar.Errorf("Error writing Pokemon to Parquet: %s", err)
-					return "", err
+					return nil, err
+				}
+				err = csvWriter.Write(entry)
+				if err != nil {
+					sugar.Errorf("Error writing Pokemon to CSV: %s", err)
+					return nil, err
 				}
 			}
 		}
 		if err := pokemonWriter.Finish(); err != nil {
-			return "", err
+			return nil, err
 		}
-		fileName := fmt.Sprintf("pokemons/%d_%d.parquet", firstId, firstId+resultsCount)
+		if err := csvWriter.Finish(); err != nil {
+			return nil, err
+		}
+		parquetFileName := fmt.Sprintf("pokemons/%d_%d.parquet", firstId, firstId+resultsCount)
+		csvFileName := fmt.Sprintf("pokemons/%d_%d.csv", firstId, firstId+resultsCount)
 		sugar.Infof("Sending parquet file of size %d to S3", pokemonWriter.Size())
-		_, err = s3Client.PutObject(context.Background(), &s3.PutObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(fileName),
-			Body:   pokemonWriter.BufferReader(),
-		})
+		err = s3Client.PutFile(pokemonWriter.BufferReader(), bucketName, parquetFileName)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		return fileName, nil
+		sugar.Infof("Sending CSV file of size %d to S3", csvWriter.Size())
+		err = s3Client.PutFile(csvWriter.BufferReader(), bucketName, csvFileName)
+		if err != nil {
+			return nil, err
+		}
+		return &ScraperResult{
+			CsvFileName:     csvFileName,
+			ParquetFileName: parquetFileName,
+		}, nil
 	}
-	return "", nil
+	return nil, nil
 }
 
 func syncLogger() {
@@ -118,7 +140,7 @@ func main() {
 	if err != nil {
 		sugar.Fatal("Failed to load SDK config")
 	}
-	s3Client = s3.NewFromConfig(cfg)
+	s3Client = s3.NewClient(cfg)
 	handler := os.Getenv("_HANDLER")
 	switch handler {
 	case "scraper":

@@ -8,14 +8,19 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = "eu-west-1"
-}
-
 variable "zip_path" {
   type    = string
   default = ""
 }
+
+variable "region" {
+  type = string
+}
+
+provider "aws" {
+  region = var.region
+}
+
 
 data "aws_iam_policy_document" "lambda_assume_policy" {
   statement {
