@@ -1,5 +1,7 @@
 region := env("AWS_REGION", "eu-west-1")
 
+export AWS_PAGER := ""
+
 tf-apply:
     tofu init
     tofu apply -auto-approve -var "region={{region}}"
@@ -9,3 +11,13 @@ tf-destroy:
 
 tf-fmt:
     tofu fmt .
+
+run-crawlers:
+    #!/bin/bash
+    crawlers=$(aws --region "{{region}}" glue get-crawlers | jq -r '.Crawlers | map(.Name)')
+    len=$(jq -r 'length' <<< "$crawlers")
+    for ((i=0; i<len; i++)); do
+        name=$(jq -r ".[$i]" <<< "$crawlers")
+        echo "Starting $name"
+        aws --region "{{region}}" glue start-crawler --name "$name"
+    done
