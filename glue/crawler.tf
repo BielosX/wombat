@@ -35,9 +35,8 @@ data "aws_iam_policy_document" "policy" {
   }
 }
 
-resource "aws_iam_role_policy" "policy" {
+resource "aws_iam_policy" "policy" {
   policy = data.aws_iam_policy_document.policy.json
-  role   = aws_iam_role.crawler_role.id
 }
 
 data "aws_iam_policy_document" "glue_assume_role" {
@@ -55,23 +54,27 @@ resource "aws_iam_role" "crawler_role" {
   assume_role_policy = data.aws_iam_policy_document.glue_assume_role.json
 }
 
-resource "aws_iam_policy_attachment" "glue_service_role" {
-  name       = "glue-service-role"
+resource "aws_iam_role_policy_attachment" "glue_service_role" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-  roles      = [aws_iam_role.crawler_role.id]
+  role       = aws_iam_role.crawler_role.id
+}
+
+resource "aws_iam_role_policy_attachment" "glue_policy" {
+  policy_arn = aws_iam_policy.policy.arn
+  role       = aws_iam_role.crawler_role.id
 }
 
 locals {
-  crawlers = {
+  name_to_prefix = {
     "csv" : "csv"
     "parquet" : "parquet"
-    "csv-partitioned" : "partitioned/csv"
-    "parquet-partitioned" : "partitioned/parquet"
+    "etl-out-csv" : "etl_out/csv"
+    "etl-out-parquet" : "etl_out/parquet"
   }
 }
 
 resource "aws_glue_crawler" "glue_crawler" {
-  for_each      = local.crawlers
+  for_each      = local.name_to_prefix
   database_name = aws_glue_catalog_database.catalog_database.name
   name          = "pokemon-${each.key}-crawler"
   role          = aws_iam_role.crawler_role.arn

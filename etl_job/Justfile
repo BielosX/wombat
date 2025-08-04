@@ -3,20 +3,15 @@ region := env("AWS_REGION", "eu-west-1")
 export AWS_PAGER := ""
 
 tf-apply:
-    #!/bin/bash -e
-    output=$(aws --region "{{region}}" glue get-tables --database-name pokemon-crawler-db)
-    tables=$(jq -r '.TableList | map({name: .Name, format: .Parameters.classification})' <<< "$output")
-    echo "$tables"
     tofu init
     tofu apply -auto-approve \
         -var "region={{region}}" \
-        -var "script_path={{justfile_directory()}}/main.py" \
-        -var "tables=$tables"
+        -var "script_path={{justfile_directory()}}/main.py"
 
 tf-destroy:
     #!/bin/bash -e
     tmp=$(mktemp)
-    tofu destroy -auto-approve -var "region={{region}}" -var "tables=[]" -var "script_path=$tmp"
+    tofu destroy -auto-approve -var "region={{region}}" -var "script_path=$tmp"
     rm "$tmp"
 
 tf-fmt:

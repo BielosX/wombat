@@ -78,15 +78,13 @@ resource "aws_iam_role" "lambda_role" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_policy.json
 }
 
-resource "aws_iam_policy_attachment" "basic_execution" {
-  name       = "basic-execution-role"
-  roles      = [aws_iam_role.lambda_role.id]
+resource "aws_iam_role_policy_attachment" "basic_execution" {
+  role       = aws_iam_role.lambda_role.id
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_policy_attachment" "bucket_access" {
-  name       = "bucket-access"
-  roles      = [aws_iam_role.lambda_role.id]
+resource "aws_iam_role_policy_attachment" "bucket_access" {
+  role       = aws_iam_role.lambda_role.id
   policy_arn = aws_iam_policy.bucket_access.arn
 }
 
@@ -142,9 +140,8 @@ resource "aws_iam_policy" "invoke_lambdas" {
   policy = data.aws_iam_policy_document.sfn_role_policy.json
 }
 
-resource "aws_iam_policy_attachment" "sfn_policy" {
-  name       = "sfn-policy"
-  roles      = [aws_iam_role.sfn_role.id]
+resource "aws_iam_role_policy_attachment" "sfn_policy" {
+  role       = aws_iam_role.sfn_role.id
   policy_arn = aws_iam_policy.invoke_lambdas.arn
 }
 

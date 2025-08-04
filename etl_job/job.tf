@@ -29,14 +29,6 @@ resource "aws_s3_object" "etl" {
   source_hash = filemd5(var.script_path)
 }
 
-
-variable "tables" {
-  type = set(object({
-    name   = string
-    format = string
-  }))
-}
-
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect  = "Allow"
@@ -69,25 +61,29 @@ data "aws_iam_policy_document" "s3_access" {
   }
 }
 
-resource "aws_iam_role_policy" "s3_access" {
+resource "aws_iam_policy" "s3_access" {
   policy = data.aws_iam_policy_document.s3_access.json
-  role   = aws_iam_role.job_role.id
 }
 
-resource "aws_iam_policy_attachment" "glue_service_role" {
-  name       = "glue-service-role"
-  roles      = [aws_iam_role.job_role.id]
+resource "aws_iam_role_policy_attachment" "glue_service_role" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+  role       = aws_iam_role.job_role.id
+}
+
+resource "aws_iam_role_policy_attachment" "glue_s3_access" {
+  policy_arn = aws_iam_policy.s3_access.arn
+  role       = aws_iam_role.job_role.id
 }
 
 locals {
-  table_to_format = {
-    for table in var.tables : table.name => table.format
+  table_name_to_format = {
+    "csv"     = "csv"
+    "parquet" = "parquet"
   }
 }
 
 resource "aws_glue_job" "etl_job" {
-  for_each          = local.table_to_format
+  for_each          = local.table_name_to_format
   name              = "pokemon-etl-${each.key}-job"
   role_arn          = aws_iam_role.job_role.arn
   glue_version      = "5.0"
