@@ -10,7 +10,7 @@ tf-destroy:
     tofu destroy -auto-approve -var "region={{region}}"
 
 tf-fmt:
-    tofu fmt .
+    tofu fmt -recursive .
 
 run-crawlers:
     #!/bin/bash

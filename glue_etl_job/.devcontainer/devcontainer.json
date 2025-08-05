@@ -5,6 +5,7 @@
   "mounts": [
     "source=${localWorkspaceFolder},target=/home/hadoop/workspace,type=bind,consistency=cached"
   ],
+  "postCreateCommand": "pip install -r requirements.txt",
   "customizations": {
     "settings": {
       "python.pythonPath": "/usr/bin/python3.11"

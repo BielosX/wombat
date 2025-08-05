@@ -31,7 +31,7 @@ tf-destroy:
 
 [working-directory: "infra"]
 tf-fmt:
-    tofu fmt
+    tofu fmt -recursive
 
 go-tools:
     mkdir -p "{{tools-dir}}"

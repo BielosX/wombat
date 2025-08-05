@@ -6,13 +6,19 @@ tf-apply:
     tofu init
     tofu apply -auto-approve \
         -var "region={{region}}" \
-        -var "script_path={{justfile_directory()}}/main.py"
+        -var "partition_by_path={{justfile_directory()}}/partition_by.py" \
+        -var "report_path={{justfile_directory()}}/report.py" \
+        -var "report_requirements_path={{justfile_directory()}}/requirements.txt"
 
 tf-destroy:
     #!/bin/bash -e
     tmp=$(mktemp)
-    tofu destroy -auto-approve -var "region={{region}}" -var "script_path=$tmp"
+    tofu destroy -auto-approve \
+        -var "region={{region}}" \
+        -var "partition_by_path=$tmp" \
+        -var "report_path=$tmp" \
+        -var "report_requirements_path=$tmp"
     rm "$tmp"
 
 tf-fmt:
-    tofu fmt .
+    tofu fmt -recursive .

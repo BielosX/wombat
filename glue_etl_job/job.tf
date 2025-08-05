@@ -17,16 +17,40 @@ resource "aws_s3_bucket_ownership_controls" "jobs_ownership" {
   }
 }
 
-variable "script_path" {
+variable "partition_by_path" {
   type    = string
   default = ""
 }
 
-resource "aws_s3_object" "etl" {
+variable "report_path" {
+  type    = string
+  default = ""
+}
+
+variable "report_requirements_path" {
+  type    = string
+  default = ""
+}
+
+resource "aws_s3_object" "partition_by" {
   bucket      = aws_s3_bucket.jobs.id
-  key         = "main.py"
-  source      = var.script_path
-  source_hash = filemd5(var.script_path)
+  key         = "partition_by.py"
+  source      = var.partition_by_path
+  source_hash = filemd5(var.partition_by_path)
+}
+
+resource "aws_s3_object" "report" {
+  bucket      = aws_s3_bucket.jobs.id
+  key         = "report.py"
+  source      = var.report_path
+  source_hash = filemd5(var.report_path)
+}
+
+resource "aws_s3_object" "report_requirements" {
+  bucket      = aws_s3_bucket.jobs.id
+  key         = "requirements.txt"
+  source      = var.report_requirements_path
+  source_hash = filemd5(var.report_requirements_path)
 }
 
 data "aws_iam_policy_document" "assume_role" {
@@ -82,28 +106,10 @@ locals {
   }
 }
 
-resource "aws_glue_job" "etl_job" {
-  for_each          = local.table_name_to_format
-  name              = "pokemon-etl-${each.key}-job"
-  role_arn          = aws_iam_role.job_role.arn
-  glue_version      = "5.0"
-  worker_type       = "G.1X"
-  number_of_workers = 2
-  execution_class   = "STANDARD"
-  timeout           = 60 * 5
-  max_retries       = 0
-
-  execution_property {
-    max_concurrent_runs = 2
-  }
-
-  command {
-    script_location = "s3://${aws_s3_object.etl.bucket}/${aws_s3_object.etl.key}"
-    name            = "glueetl"
-    python_version  = "3"
-  }
-
-  default_arguments = {
+module "elt_partition_job" {
+  for_each = local.table_name_to_format
+  source   = "./python_etl_job"
+  arguments = {
     "--job-language"                     = "python"
     "--enable-spark-ui"                  = "true"
     "--enable-continuous-cloudwatch-log" = "true"
@@ -113,4 +119,25 @@ resource "aws_glue_job" "etl_job" {
     "--output_bucket"                    = local.bucket_name
     "--writer_mode"                      = "append"
   }
+  name          = "pokemon-etl-${each.key}-partition-job"
+  role_arn      = aws_iam_role.job_role.arn
+  script_bucket = aws_s3_object.partition_by.bucket
+  script_key    = aws_s3_object.partition_by.key
+}
+
+module "elt_report_job" {
+  source = "./python_etl_job"
+  arguments = {
+    "--job-language"                     = "python"
+    "--enable-spark-ui"                  = "true"
+    "--enable-continuous-cloudwatch-log" = "true"
+    "--glue_db_name"                     = local.catalog_db_name
+    "--glue_table_name"                  = local.table_name_to_format["parquet"]
+    "--output_bucket"                    = local.bucket_name
+  }
+  name             = "pokemon-etl-report"
+  role_arn         = aws_iam_role.job_role.arn
+  script_bucket    = aws_s3_object.report.bucket
+  script_key       = aws_s3_object.report.key
+  requirements_key = aws_s3_object.report_requirements.key
 }
