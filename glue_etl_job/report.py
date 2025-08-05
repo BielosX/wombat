@@ -77,15 +77,21 @@ with pandas.ExcelWriter(buffer, engine="xlsxwriter") as writer:
     } | data_commons)
 
     rows = len(by_type.index)
+    max_lens = by_type.astype(str).applymap(len).max()
     for col_num, value in enumerate(by_type.columns):
+        column_len = max(max_lens[col_num], len(str(value))) + 4
         worksheet.write(0, col_num, value, header_format)
         write_cell(worksheet, col_num, rows, by_type, even_cell, odd_cell)
+        worksheet.set_column(col_num, col_num, column_len)
 
     rows = len(by_generation.index)
+    max_lens = by_generation.astype(str).applymap(len).max()
     for col_num, value in enumerate(by_generation.columns):
         col_index = start_col+col_num
+        column_len = max(max_lens[col_num], len(str(value))) + 4
         worksheet.write(0, col_index, value, header_format)
         write_cell(worksheet, col_index, rows, by_generation, even_cell, odd_cell)
+        worksheet.set_column(col_index, col_index, column_len)
 
 
 timestamp = datetime.now().isoformat()
