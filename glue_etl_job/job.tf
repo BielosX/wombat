@@ -1,20 +1,6 @@
-resource "aws_s3_bucket" "jobs" {
-  bucket_prefix = "glue-etl-jobs-"
-}
-
-resource "aws_s3_bucket_public_access_block" "jobs" {
-  bucket                  = aws_s3_bucket.jobs.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_ownership_controls" "jobs_ownership" {
-  bucket = aws_s3_bucket.jobs.id
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
+module "bucket" {
+  source      = "../private_bucket"
+  name_prefix = "glue-etl-jobs-"
 }
 
 variable "partition_by_path" {
@@ -33,21 +19,21 @@ variable "report_requirements_path" {
 }
 
 resource "aws_s3_object" "partition_by" {
-  bucket      = aws_s3_bucket.jobs.id
+  bucket      = module.bucket.bucket_name
   key         = "partition_by.py"
   source      = var.partition_by_path
   source_hash = filemd5(var.partition_by_path)
 }
 
 resource "aws_s3_object" "report" {
-  bucket      = aws_s3_bucket.jobs.id
+  bucket      = module.bucket.bucket_name
   key         = "report.py"
   source      = var.report_path
   source_hash = filemd5(var.report_path)
 }
 
 resource "aws_s3_object" "report_requirements" {
-  bucket      = aws_s3_bucket.jobs.id
+  bucket      = module.bucket.bucket_name
   key         = "requirements.txt"
   source      = var.report_requirements_path
   source_hash = filemd5(var.report_requirements_path)
@@ -79,8 +65,8 @@ data "aws_iam_policy_document" "s3_access" {
     resources = [
       local.bucket_arn,
       "${local.bucket_arn}/*",
-      aws_s3_bucket.jobs.arn,
-      "${aws_s3_bucket.jobs.arn}/*"
+      module.bucket.bucket_arn,
+      "${module.bucket.bucket_arn}/*"
     ]
   }
 }

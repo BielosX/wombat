@@ -1,0 +1,34 @@
+{
+  "monitoringConfiguration": {
+    "managedPersistenceMonitoringConfiguration": {
+      "enabled": true
+    },
+    "cloudWatchLoggingConfiguration": {
+      "enabled": true,
+      "logGroupName": "${LOG_GROUP_NAME}",
+      "logStreamNamePrefix": "${LOG_STREAM_PREFIX}",
+      "logTypes": {
+        "SPARK_DRIVER": ["stdout", "stderr"]
+      }
+    }
+  },
+  "applicationConfiguration": [
+    {
+      "classification": "spark-defaults",
+      "properties": {
+        "spark.driver.memory": "1g",
+        "spark.driver.cores": "1",
+        "spark.executor.memory": "1g",
+        "spark.executor.cores": "1",
+        "spark.dynamicAllocation.enabled": "true",
+        "spark.dynamicAllocation.initialExecutors": "1",
+        "spark.executor.instances": "1",
+        "spark.dynamicAllocation.maxExecutors": "2",
+        "spark.emr-serverless.memoryOverheadFactor": "0.1",
+        "spark.jars": "/usr/share/aws/delta/lib/delta-spark.jar,/usr/share/aws/delta/lib/delta-storage.jar",
+        "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
+        "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+      }
+    }
+  ]
+}

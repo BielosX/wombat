@@ -1,0 +1,6 @@
+{
+  "sparkSubmit": {
+    "entryPoint": "s3://${DEPLOYMENT_BUCKET}/${SCRIPT_KEY}",
+    "entryPointArguments": ["--data-bucket", "${DATA_BUCKET}", "--out-format", "delta", "--out-mode", "append"]
+  }
+}

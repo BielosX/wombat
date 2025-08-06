@@ -1,0 +1,32 @@
+region := env("AWS_REGION", "eu-west-1")
+
+export AWS_PAGER := ""
+
+tf-apply:
+    tofu init
+    tofu apply -auto-approve -var "region={{region}}"
+
+tf-destroy:
+    tofu destroy -auto-approve -var "region={{region}}"
+
+tf-fmt:
+    tofu fmt -recursive .
+
+run-job name:
+    #!/bin/bash -e
+    output=$(tofu output -json | jq -r 'to_entries | map({key: .key, value: .value.value}) | from_entries')
+    deploy_bucket=$(jq -r '.deployment_bucket_name' <<< "$output")
+    data_bucket=$(jq -r '.data_bucket_name' <<< "$output")
+    script_path="{{justfile_directory()}}/jobs/{{name}}.py"
+    aws --region "{{region}}" s3 cp "$script_path" "s3://${deploy_bucket}/{{name}}.py"
+    driver=$(DEPLOYMENT_BUCKET="$deploy_bucket" DATA_BUCKET="$data_bucket" SCRIPT_KEY="{{name}}.py" envsubst < job_driver_conf.json)
+    stream_prefix="{{name}}-"
+    log_group=$(jq -r '.job_log_group_name' <<< "$output")
+    config=$(LOG_GROUP_NAME="$log_group" LOG_STREAM_PREFIX="$stream_prefix" envsubst < job_conf.json)
+    app_id=$(jq -r '.application_id' <<< "$output")
+    role_arn=$(jq -r '.execution_role_arn' <<< "$output")
+    aws --region "{{region}}" emr-serverless start-job-run --application-id "$app_id" \
+        --execution-role-arn "$role_arn" \
+        --job-driver "$driver" \
+        --configuration-overrides "$config" \
+        --execution-timeout-minutes 5
