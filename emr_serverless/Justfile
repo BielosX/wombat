@@ -30,3 +30,6 @@ run-job name:
         --job-driver "$driver" \
         --configuration-overrides "$config" \
         --execution-timeout-minutes 5
+
+py-fmt:
+     uv run ruff format
