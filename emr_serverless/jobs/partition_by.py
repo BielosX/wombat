@@ -75,4 +75,4 @@ frame = (
 
 frame.write.partitionBy("type", "generation", strongest, weakest).format(
     out_format
-).mode(mode).save(f"s3://{bucket}/pokemons/delta/")
+).mode(mode).save(f"s3://{bucket}/pokemons/${out_format}/")
