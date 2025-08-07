@@ -9,6 +9,16 @@ tf-apply:
 tf-destroy:
     tofu destroy -auto-approve -var "region={{region}}"
 
+stop-app:
+    #!/bin/bash -e
+    app_id=$(tofu output -json | jq -r '.application_id.value')
+    aws --region "{{region}}" emr-serverless stop-application --application-id "$app_id"
+
+app-state:
+    #!/bin/bash -e
+    app_id=$(tofu output -json | jq -r '.application_id.value')
+    aws --region "{{region}}" emr-serverless get-application --application-id "$app_id" | jq -r '.application.state'
+
 tf-fmt:
     tofu fmt -recursive .
 
