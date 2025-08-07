@@ -62,7 +62,7 @@ resource "aws_cloudwatch_log_group" "job_log_group" {
 data "aws_iam_policy_document" "policy" {
   statement {
     effect  = "Allow"
-    actions = ["s3:PutObject", "s3:ListBucket", "s3:GetObject"]
+    actions = ["s3:PutObject", "s3:ListBucket", "s3:GetObject", "s3:DeleteObject"]
     resources = [
       local.data_bucket_arn,
       "${local.data_bucket_arn}/*"

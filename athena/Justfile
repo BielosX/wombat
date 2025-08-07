@@ -1,0 +1,13 @@
+region := env("AWS_REGION", "eu-west-1")
+
+export AWS_PAGER := ""
+
+tf-apply:
+    tofu init
+    tofu apply -auto-approve -var "region={{region}}"
+
+tf-destroy:
+    tofu destroy -auto-approve -var "region={{region}}"
+
+tf-fmt:
+    tofu fmt -recursive .

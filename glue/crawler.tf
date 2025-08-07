@@ -68,6 +68,7 @@ locals {
   name_to_prefix = {
     "csv" : "csv"
     "parquet" : "parquet"
+    "delta" : "delta"
     "etl-out-csv" : "etl_out/csv"
     "etl-out-parquet" : "etl_out/parquet"
   }
@@ -78,7 +79,7 @@ resource "aws_glue_crawler" "glue_crawler" {
   database_name = aws_glue_catalog_database.catalog_database.name
   name          = "pokemon-${each.key}-crawler"
   role          = aws_iam_role.crawler_role.arn
-  classifiers   = [] // use builtin csv and parquet
+  classifiers   = [] // use builtin csv, parquet and delta
 
   s3_target {
     path = "s3://${local.data_bucket_name}/pokemons/${each.value}/"
