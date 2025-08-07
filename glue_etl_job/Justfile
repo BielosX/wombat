@@ -22,3 +22,6 @@ tf-destroy:
 
 tf-fmt:
     tofu fmt -recursive .
+
+py-fmt:
+    ruff format
